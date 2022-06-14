@@ -54,17 +54,34 @@ function(CMAKE_DETERMINE_COMPILER_ABI lang src)
     set(ENV{LC_MESSAGES} C)
     set(ENV{LANG}        C)
 
-    try_compile(CMAKE_${lang}_ABI_COMPILED
-      ${CMAKE_BINARY_DIR} ${src}
-      CMAKE_FLAGS ${CMAKE_FLAGS}
-                  # Ignore unused flags when we are just determining the ABI.
-                  "--no-warn-unused-cli"
-      COMPILE_DEFINITIONS ${COMPILE_DEFINITIONS}
-      OUTPUT_VARIABLE OUTPUT
-      COPY_FILE "${BIN}"
-      COPY_FILE_ERROR _copy_error
-      __CMAKE_INTERNAL ABI
-      )
+    if("${CMAKE_GENERATOR}" STREQUAL "IAR Embedded Workbench for Arm")
+      # This generator doesn't support try_compile()
+      if(${lang} STREQUAL "CXX")
+        set(cppswitch "--c++")
+      endif()
+      execute_process(COMMAND "${CMAKE_${lang}_COMPILER}" ${cppswitch}
+                              ${src} -o ${BIN}
+                      WORKING_DIRECTORY ${CMAKE_PLATFORM_INFO_DIR}
+                      OUTPUT_VARIABLE OUTPUT
+                      RESULT_VARIABLE CMAKE_${lang}_ABI_COMPILED)
+      if(${CMAKE_${lang}_ABI_COMPILED} EQUAL 0)
+        set(CMAKE_${lang}_ABI_COMPILED TRUE)
+      else()
+        set(CMAKE_${lang}_ABI_COMPILED FALSE)
+      endif()
+    else()
+      try_compile(CMAKE_${lang}_ABI_COMPILED
+        ${CMAKE_BINARY_DIR} ${src}
+        CMAKE_FLAGS ${CMAKE_FLAGS}
+                    # Ignore unused flags when we are just determining the ABI.
+                    "--no-warn-unused-cli"
+        COMPILE_DEFINITIONS ${COMPILE_DEFINITIONS}
+        OUTPUT_VARIABLE OUTPUT
+        COPY_FILE "${BIN}"
+        COPY_FILE_ERROR _copy_error
+        __CMAKE_INTERNAL ABI
+        )
+    endif()
 
     # Restore original LC_ALL, LC_MESSAGES, and LANG
     set(ENV{LC_ALL}      ${_orig_lc_all})

@@ -35,7 +35,7 @@ endif()
 # and link the most basic of programs.   If not, a fatal error
 # is set and cmake stops processing commands and will not generate
 # any makefiles or projects.
-if(NOT CMAKE_C_COMPILER_WORKS)
+if(NOT CMAKE_C_COMPILER_WORKS AND NOT "${CMAKE_GENERATOR}" STREQUAL "IAR Embedded Workbench for Arm")
   PrintTestCompilerStatus("C")
   __TestCompiler_setTryCompileTargetType()
   file(WRITE ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testCCompiler.c

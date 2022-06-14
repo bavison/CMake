@@ -131,6 +131,10 @@
 #  include <sys/time.h>
 #endif
 
+#ifdef _WIN32
+#  include "cmGlobalIarEwArmGenerator.h"
+#endif
+
 namespace {
 
 #if !defined(CMAKE_BOOTSTRAP)
@@ -2674,6 +2678,9 @@ void cmake::AddDefaultGenerators()
 #endif
 #ifdef CMAKE_USE_XCODE
   this->Generators.push_back(cmGlobalXCodeGenerator::NewFactory());
+#endif
+#ifdef _WIN32
+  this->Generators.push_back(cmGlobalIarEwArmGenerator::NewFactory());
 #endif
 }
 
