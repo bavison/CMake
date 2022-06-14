@@ -30,14 +30,30 @@ macro(_record_compiler_features lang compile_flags feature_list)
     set(compile_flags_for_link "")
   endif()
 
-  try_compile(CMAKE_${lang}_FEATURE_TEST
-    ${CMAKE_BINARY_DIR} "${CMAKE_BINARY_DIR}/CMakeFiles/feature_tests.${lang_lc}"
-    COMPILE_DEFINITIONS "${compile_flags}"
-    LINK_LIBRARIES "${compile_flags_for_link}"
-    OUTPUT_VARIABLE _output
-    COPY_FILE "${CMAKE_BINARY_DIR}/CMakeFiles/feature_tests.bin"
-    COPY_FILE_ERROR _copy_error
-    )
+  if("${CMAKE_GENERATOR}" STREQUAL "IAR Embedded Workbench for Arm")
+    # This generator doesn't support try_compile()
+    execute_process(COMMAND "${CMAKE_${lang}_COMPILER}"
+                            "${compile_flags}"
+                            "${CMAKE_BINARY_DIR}/CMakeFiles/feature_tests.${lang_lc}"
+                            -o "${CMAKE_BINARY_DIR}/CMakeFiles/feature_tests.bin"
+                            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/CMakeFiles
+                            OUTPUT_VARIABLE _output
+                            RESULT_VARIABLE CMAKE_${lang}_FEATURE_TEST)
+    if(${CMAKE_${lang}_FEATURE_TEST} EQUAL 0)
+      set(CMAKE_${lang}_FEATURE_TEST TRUE)
+    else()
+      set(CMAKE_${lang}_FEATURE_TEST FALSE)
+    endif()
+  else()
+    try_compile(CMAKE_${lang}_FEATURE_TEST
+      ${CMAKE_BINARY_DIR} "${CMAKE_BINARY_DIR}/CMakeFiles/feature_tests.${lang_lc}"
+      COMPILE_DEFINITIONS "${compile_flags}"
+      LINK_LIBRARIES "${compile_flags_for_link}"
+      OUTPUT_VARIABLE _output
+      COPY_FILE "${CMAKE_BINARY_DIR}/CMakeFiles/feature_tests.bin"
+      COPY_FILE_ERROR _copy_error
+      )
+  endif()
   if(CMAKE_${lang}_FEATURE_TEST AND NOT _copy_error)
     set(_result 0)
   else()
