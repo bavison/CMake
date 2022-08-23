@@ -72,7 +72,7 @@ static void option(cmXMLWriter& xout, std::string const& name,
 
 /* Convert an internal CMake path (e.g. C:/dir/dir/file.c) to the format
  * accepted by Embedded Workbench, if possible relative to $PROJ_DIR$
- * (e.g. $PROJ_DIR\..\..\dir\file.c)
+ * (e.g. $PROJ_DIR$\..\..\dir\file.c)
  */
 static std::string canonicalise(std::string proj_dir, std::string path)
 {
@@ -107,6 +107,35 @@ static std::string canonicalise(std::string proj_dir, std::string path)
   /* Finally convert path separators to DOS style */
   std::replace(result.begin(), result.end(), '/', '\\');
 
+  return result;
+}
+
+/* Split a string by a separator character into a vector of strings */
+static std::vector<std::string> split(std::string in, char sep)
+{
+  std::vector<std::string> result;
+  if (in.empty())
+    return result;
+  for (size_t i = 0, j;; i = j + 1) {
+    j = in.find(sep, i);
+    if (j == std::string::npos) {
+      result.push_back(in.substr(i));
+      break;
+    }
+    result.push_back(in.substr(i, j-i));
+  }
+  return result;
+}
+
+/* Join a vector of strings into a single string, inserting separator characters */
+static std::string join(std::vector<std::string> in, char sep)
+{
+  std::string result;
+  for (auto s : in) {
+    if (!result.empty())
+      result += sep;
+    result += s;
+  }
   return result;
 }
 
@@ -232,6 +261,26 @@ void cmLocalIarEwArmGenerator::Generate()
         asm_diag_suppress_range_2 =
           asm_diag_suppress.substr(asm_diag_suppress.find_first_of("-") + 1);
       }
+      std::string custom_extensions =
+        this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_EXTENSIONS");
+      std::vector<std::string> custom_cmdline_vector =
+        split(this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_CMDLINE"), ' ');
+      // Assume any element of the custom command line may be a filespec
+      for (auto& f : custom_cmdline_vector)
+        f = canonicalise(this->GetCurrentBinaryDirectory(), f);
+      std::string custom_cmdline = join(custom_cmdline_vector, ' ');
+      std::string custom_build_sequence =
+        this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_BUILD_SEQUENCE");
+      if (custom_build_sequence.empty())
+        custom_build_sequence = "inputOutputBased";
+      std::vector<std::string> custom_outputs =
+        split(this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_OUTPUTS"), ' ');
+      for (auto& f : custom_outputs)
+        f = canonicalise(this->GetCurrentBinaryDirectory(), f);
+      std::vector<std::string> custom_inputs =
+        split(this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_INPUTS"), ' ');
+      for (auto& f : custom_inputs)
+        f = canonicalise(this->GetCurrentBinaryDirectory(), f);
       std::string ilink_keep_symbols =
         this->Makefile->GetDefinition("CMAKE_IAR_ILINK_KEEP_SYMBOLS");
       std::string ilink_icf_file_expr =
@@ -490,10 +539,28 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "CUSTOM");
         xout.Element("archiveVersion", 3);
         xout.StartElement("data");
-        xout.Element("extensions", "");
-        xout.Element("cmdline", "");
+        xout.Element("extensions", custom_extensions);
+        xout.Element("cmdline", custom_cmdline);
         xout.Element("hasPrio", 1);
-        xout.Element("buildSequence", "inputOutputBased");
+        xout.Element("buildSequence", custom_build_sequence);
+        if (!custom_outputs.empty()) {
+          xout.StartElement("outputs");
+          for (auto& f : custom_outputs) {
+            xout.StartElement("file");
+            xout.Element("name", f);
+            xout.EndElement(); // file
+          }
+          xout.EndElement(); // outputs
+        }
+        if (!custom_inputs.empty()) {
+          xout.StartElement("inputs");
+          for (auto& f : custom_inputs) {
+            xout.StartElement("file");
+            xout.Element("name", f);
+            xout.EndElement(); // file
+          }
+          xout.EndElement(); // outputs
+        }
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
