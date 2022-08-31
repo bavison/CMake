@@ -5,6 +5,7 @@
 #include "cmGeneratedFileStream.h"
 #include "cmGeneratorExpression.h"
 #include "cmGeneratorTarget.h"
+#include "cmGlobalIarEwArmGenerator.h"
 #include "cmSourceFile.h"
 #include "cmXMLWriter.h"
 
@@ -192,7 +193,8 @@ void cmLocalIarEwArmGenerator::Generate()
 
   // Filter for executable targets
   for (auto& target : this->GetGeneratorTargets()) {
-    if (target->GetType() == cmStateEnums::EXECUTABLE) {
+    if (target->GetType() == cmStateEnums::EXECUTABLE ||
+        target->GetType() == cmStateEnums::STATIC_LIBRARY) {
 
       // Gather config-invariant information
       std::string runtime_lib_select_var =
@@ -309,6 +311,10 @@ void cmLocalIarEwArmGenerator::Generate()
       std::string crc_algorithm =
         this->Makefile->GetDefinition("CMAKE_IAR_CRC_ALGORITHM");
 
+      // EWARM doesn't have the concept of installation of binaries, but this
+      // is a convenient place to stash the directory for future reference
+      target->Target->SetInstallPath(this->GetCurrentBinaryDirectory());
+
       // Write out EWP file
       cmGeneratedFileStream fout(this->GetCurrentBinaryDirectory() + "/" +
                                  target->GetName() + ".ewp");
@@ -364,7 +370,8 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "GEndianMode", 0);
         option(xout, "Input description", "Automatic choice of formatter, without multibyte support.");
         option(xout, "Output description", "Automatic choice of formatter, without multibyte support.");
-        option(xout, "GOutputBinary", 0);
+        option(xout, "GOutputBinary",
+               target->GetType() == cmStateEnums::STATIC_LIBRARY ? 1 : 0);
         option(xout, "OGCoreOrChip", chip_select.empty() ? 0 : 1);
         option(xout, "GRuntimeLibSelect", 0, runtime_lib_select);
         option(xout, "GRuntimeLibSelectSlave", 0, runtime_lib_select);
@@ -616,7 +623,14 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IlinkExtraOptions", "");
         option(xout, "IlinkLowLevelInterfaceSlave", 1);
         option(xout, "IlinkAutoLibEnable", 1);
-        option(xout, "IlinkAdditionalLibs", "");
+        std::vector<std::string> additional_libs;
+        for (auto const& lib : target->Target->GetOriginalLinkLibraries())
+          additional_libs.push_back(canonicalise(
+            this->GetCurrentBinaryDirectory(),
+            static_cast<cmGlobalIarEwArmGenerator*>(this->GetGlobalGenerator())
+                ->FindLibraryPath(lib.first) +
+              "/" + config + "/Exe/" + lib.first + ".a"));
+        option(xout, "IlinkAdditionalLibs", additional_libs);
         option(xout, "IlinkOverrideProgramEntryLabel", ilink_program_entry_label.empty() ? 0 : 1);
         option(xout, "IlinkProgramEntryLabelSelect", 0);
         option(xout, "IlinkProgramEntryLabel", ilink_program_entry_label);
