@@ -4,6 +4,7 @@
 
 #include "cmDocumentationEntry.h"
 #include "cmGeneratedFileStream.h"
+#include "cmGeneratorTarget.h"
 #include "cmGlobalGeneratorFactory.h"
 #include "cmLocalGenerator.h"
 #include "cmLocalIarEwArmGenerator.h"
@@ -88,7 +89,8 @@ void cmGlobalIarEwArmGenerator::Generate()
   // Go through all all targets, looking for binaries
   for (auto& local_generator : project->second) {
     for (auto& target : local_generator->GetMakefile()->GetTargets()) {
-      if (target.second.GetType() == cmStateEnums::EXECUTABLE) {
+      if (target.second.GetType() == cmStateEnums::EXECUTABLE ||
+          target.second.GetType() == cmStateEnums::STATIC_LIBRARY) {
         // Construct path to EWP file in format expected by EWARM
         std::string path = local_generator->GetCurrentBinaryDirectory().substr(top_binary_dir.length());
         std::replace(path.begin(), path.end(), '/', '\\');
@@ -116,6 +118,21 @@ void cmGlobalIarEwArmGenerator::Generate()
   xout.Element("batchBuild "); // extra space to match EW convention
   xout.EndElement(); // workspace
   xout.EndDocument();
+}
+
+const std::string& cmGlobalIarEwArmGenerator::FindLibraryPath(
+  const std::string& name)
+{
+  for (auto& local_generator : this->LocalGenerators) {
+    auto targets = GetLocalGeneratorTargetsInOrder(local_generator.get());
+    for (auto& target : targets) {
+      if (target->GetType() == cmStateEnums::STATIC_LIBRARY &&
+          target->Target->GetName() == name)
+        return target->Target->GetInstallPath();
+    }
+  }
+  static const std::string empty = "";
+  return empty;
 }
 
 std::unique_ptr<cmGlobalGenerator> cmGlobalIarEwArmGenerator::Factory::CreateGlobalGenerator(

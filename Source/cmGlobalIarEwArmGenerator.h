@@ -31,6 +31,8 @@ public:
 
   bool FindMakeProgram(cmMakefile*) override;
 
+  const std::string& FindLibraryPath(const std::string& name);
+
 protected:
   void Generate() override;
 
