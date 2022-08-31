@@ -249,6 +249,9 @@ void cmLocalIarEwArmGenerator::Generate()
 
       std::string c_diag_suppress =
         this->Makefile->GetDefinition("CMAKE_IAR_C_DIAG_SUPPRESS");
+      std::string c_allow_vla_str =
+        this->Makefile->GetDefinition("CMAKE_IAR_C_ALLOW_VLA");
+      int c_allow_vla = c_allow_vla_str.empty() ? 0 : stoi(c_allow_vla_str);
       std::string asm_diag_suppress =
         this->Makefile->GetDefinition("CMAKE_IAR_ASM_DIAG_SUPPRESS");
       std::string asm_diag_suppress_range_1;
@@ -451,7 +454,7 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "CCPosIndNoDynInit", 0);
         option(xout, "IccLang", 2);
         option(xout, "IccCDialect", 1);
-        option(xout, "IccAllowVLA", 0);
+        option(xout, "IccAllowVLA", c_allow_vla);
         option(xout, "IccStaticDestr", 1);
         option(xout, "IccCppInlineSemantics", 0);
         option(xout, "IccCmsis", 1);
