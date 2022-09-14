@@ -83,11 +83,18 @@ void cmGlobalIarEwArmGenerator::Generate()
   auto project = this->ProjectMap.begin();
   // Build up a list of EWP file paths in a vector
   std::vector<std::string> projects;
+  // For each configuration, build up a list of targets that use it, with
+  // static libraries segragated from executables
+  std::map<std::string,
+           std::map<cmStateEnums::TargetType, std::vector<std::string>>>
+    config_projects;
   // Remember the absolute path to the top binary dir so we can construct relative paths
   const std::string& top_binary_dir =
     project->second[0]->GetCurrentBinaryDirectory();
   // Go through all all targets, looking for binaries
   for (auto& local_generator : project->second) {
+    auto& configs = local_generator->GetMakefile()->GetGeneratorConfigs(
+      cmMakefile::IncludeEmptyConfig);
     for (auto& target : local_generator->GetMakefile()->GetTargets()) {
       if (target.second.GetType() == cmStateEnums::EXECUTABLE ||
           target.second.GetType() == cmStateEnums::STATIC_LIBRARY) {
@@ -95,7 +102,12 @@ void cmGlobalIarEwArmGenerator::Generate()
         std::string path = local_generator->GetCurrentBinaryDirectory().substr(top_binary_dir.length());
         std::replace(path.begin(), path.end(), '/', '\\');
         path = "$WS_DIR$" + path + "\\" + target.first + ".ewp";
+
         projects.push_back(path);
+
+        for (auto const& config : configs)
+          config_projects[config][target.second.GetType()].push_back(
+            target.first);
       }
     }
   }
@@ -115,7 +127,25 @@ void cmGlobalIarEwArmGenerator::Generate()
     xout.Element("path", p);
     xout.EndElement(); // project
   }
-  xout.Element("batchBuild "); // extra space to match EW convention
+  xout.StartElement("batchBuild");
+  for (auto const& batch : config_projects) {
+    xout.StartElement("batchDefinition");
+    xout.Element("name", "All - " + batch.first);
+    for (auto const& p : batch.second.at(cmStateEnums::STATIC_LIBRARY)) {
+      xout.StartElement("member");
+      xout.Element("project", p);
+      xout.Element("configuration", batch.first);
+      xout.EndElement(); // member
+    }
+    for (auto const& p : batch.second.at(cmStateEnums::EXECUTABLE)) {
+      xout.StartElement("member");
+      xout.Element("project", p);
+      xout.Element("configuration", batch.first);
+      xout.EndElement(); // member
+    }
+    xout.EndElement(); // batchDefinition
+  }
+  xout.EndElement(); // batchBuild
   xout.EndElement(); // workspace
   xout.EndDocument();
 }
