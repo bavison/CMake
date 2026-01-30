@@ -41,8 +41,11 @@ static void option<std::set<std::string>>(
 {
   xout.StartElement("option");
   xout.Element("name", name);
-  for (auto& s : state) {
-    xout.Element("state", s);
+  if (state.empty())
+    xout.Element("state", "");
+  else
+    for (auto& s : state) {
+      xout.Element("state", s);
   }
   xout.EndElement(); // option
 }
@@ -54,8 +57,11 @@ static void option<std::vector<std::string>>(cmXMLWriter& xout,
 {
   xout.StartElement("option");
   xout.Element("name", name);
-  for (auto& s : state) {
-    xout.Element("state", s);
+  if (state.empty())
+    xout.Element("state", "");
+  else
+    for (auto& s : state) {
+      xout.Element("state", s);
   }
   xout.EndElement(); // option
 }
@@ -326,7 +332,7 @@ void cmLocalIarEwArmGenerator::Generate()
       xout.SetIndentationElement("    ");
       xout.StartDocument();
       xout.StartElement("project");
-      xout.Element("fileVersion", 3);
+      xout.Element("fileVersion", 4);
       for (auto const& config : this->Makefile->GetGeneratorConfigs(
              cmMakefile::IncludeEmptyConfig)) {
 
@@ -360,7 +366,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "General");
         xout.Element("archiveVersion", 3);
         xout.StartElement("data");
-        xout.Element("version", 34);
+        xout.Element("version", 37);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "ExePath", config + "\\Exe");
@@ -377,23 +383,23 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "GRuntimeLibSelectSlave", 0, runtime_lib_select);
         option(xout, "RTDescription", runtime_config_description);
         option(xout, "OGProductVersion", "9.20.4.46976");
-        option(xout, "OGLastSavedByProductVersion", "9.20.4.46976");
+        option(xout, "OGLastSavedByProductVersion", "9.70.2.18199");
         option(xout, "OGChipSelectEditMenu", chip_select);
         option(xout, "GenLowLevelInterface", 1);
         option(xout, "GEndianModeBE", 1);
         option(xout, "OGBufferedTerminalOutput", 0);
         option(xout, "GenStdoutInterface", 0);
         option(xout, "RTConfigPath2", runtime_config_path);
-        option(xout, "GBECoreSlave", 31, 35);
+        option(xout, "GBECoreSlave", 35, 35);
         option(xout, "OGUseCmsis", 0);
         option(xout, "OGUseCmsisDspLib", 0);
         option(xout, "GRuntimeLibThreads", 0);
-        option(xout, "CoreVariant", 31, 35);
+        option(xout, "CoreVariant", 35, 35);
         option(xout, "GFPUDeviceSlave", chip_select);
         option(xout, "FPU2", 0, 0);
         option(xout, "NrRegs", 0, 0);
         option(xout, "NEON", 0);
-        option(xout, "GFPUCoreSlave2", 31, 35);
+        option(xout, "GFPUCoreSlave2", 35, 35);
         option(xout, "OGCMSISPackSelectDevice");
         option(xout, "OgLibHeap", 0);
         option(xout, "OGLibAdditionalLocale", 0);
@@ -409,6 +415,10 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "OGAarch64Abi", 0);
         option(xout, "OG_32_64Device", 0);
         option(xout, "BuildFilesPath", config + "\\");
+        option(xout, "PointerAuthentication", 0);
+        option(xout, "FPU64", 1);
+        option(xout, "OG_32_64DeviceCoreSlave", 35, 35);
+        option(xout, "GOutputSo", 0);
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -416,7 +426,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "ICCARM");
         xout.Element("archiveVersion", 2);
         xout.StartElement("data");
-        xout.Element("version", 37);
+        xout.Element("version", 40);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "CCDefines", c_defines);
@@ -478,6 +488,12 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IccRTTI2", 0);
         option(xout, "OICompilerExtraOption", 1);
         option(xout, "CCStackProtection", 0);
+        option(xout, "CCPointerAutentiction", 0);
+        option(xout, "CCBranchTargetIdentification", 0);
+        option(xout, "CCPosRadRwpi", 0);
+        option(xout, "CCPosSharedSlave", 0);
+        option(xout, "CCUseIarExtensions", 1);
+        option(xout, "CCUseGnuExtensions", 0);
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -485,7 +501,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "AARM");
         xout.Element("archiveVersion", 2);
         xout.StartElement("data");
-        xout.Element("version", 11);
+        xout.Element("version", 12);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "AObjPrefix", 1);
@@ -527,6 +543,7 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "AExtraOptionsV2", "");
         option(xout, "AsmNoLiteralPool", 0);
         option(xout, "PreInclude", "");
+        option(xout, "A_32_64Device", 1);
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -547,11 +564,10 @@ void cmLocalIarEwArmGenerator::Generate()
 
         xout.StartElement("settings");
         xout.Element("name", "CUSTOM");
-        xout.Element("archiveVersion", 3);
+        xout.Element("archiveVersion", 4);
         xout.StartElement("data");
         xout.Element("extensions", custom_extensions);
         xout.Element("cmdline", custom_cmdline);
-        xout.Element("hasPrio", 1);
         xout.Element("buildSequence", custom_build_sequence);
         if (!custom_outputs.empty()) {
           xout.StartElement("outputs");
@@ -575,19 +591,10 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.EndElement(); // settings
 
         xout.StartElement("settings");
-        xout.Element("name", "BUILDACTION");
-        xout.Element("archiveVersion", 1);
-        xout.StartElement("data");
-        xout.Element("prebuild", "");
-        xout.Element("postbuild", "");
-        xout.EndElement(); // data
-        xout.EndElement(); // settings
-
-        xout.StartElement("settings");
         xout.Element("name", "ILINK");
         xout.Element("archiveVersion", 0);
         xout.StartElement("data");
-        xout.Element("version", 26);
+        xout.Element("version", 28);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "IlinkLibIOConfig", 1);
@@ -688,6 +695,9 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IlinkDemangle", 0);
         option(xout, "IlinkWrapperFileEnable", 0);
         option(xout, "IlinkWrapperFile", "");
+        option(xout, "IlinkProcessor", 1);
+        option(xout, "IlinkFpuProcessor", 1);
+        option(xout, "IlinkSharedSlave", 0);
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -695,13 +705,21 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "IARCHIVE");
         xout.Element("archiveVersion", 0);
         xout.StartElement("data");
-        xout.Element("version", 0);
+        xout.Element("version", 1);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "IarchiveInputs", "");
         option(xout, "IarchiveOverride", 0);
         option(xout, "IarchiveOutput", "###Unitialized###");
+        option(xout, "IarchiveExtraOptionsCheck", 0);
+        option(xout, "IarchiveExtraOptions", "");
         xout.EndElement(); // data
+        xout.EndElement(); // settings
+
+        xout.StartElement("settings");
+        xout.Element("name", "BUILDACTION");
+        xout.Element("archiveVersion", 2);
+        xout.Element("data "); // trailing space required to match EWARM whitespace
         xout.EndElement(); // settings
         xout.EndElement(); // configuration
       }
@@ -768,6 +786,11 @@ void cmLocalIarEwArmGenerator::Generate()
         }
       }
 
+      xout.StartElement("projectSettings");
+      xout.StartElement("general");
+      xout.Element("resolveSourceForBinaries", "true");
+      xout.EndElement(); // general
+      xout.EndElement(); // projectSettings
       xout.EndElement(); // project
       xout.EndDocument();
     }
