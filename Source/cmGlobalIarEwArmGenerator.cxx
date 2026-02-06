@@ -93,7 +93,7 @@ void cmGlobalIarEwArmGenerator::Generate()
     project->second[0]->GetCurrentBinaryDirectory();
   // Go through all all targets, looking for binaries
   for (auto& local_generator : project->second) {
-    auto& configs = local_generator->GetMakefile()->GetGeneratorConfigs(
+    const auto& configs = local_generator->GetMakefile()->GetGeneratorConfigs(
       cmMakefile::IncludeEmptyConfig);
     for (auto& target : local_generator->GetMakefile()->GetTargets()) {
       if (target.second.GetType() == cmStateEnums::EXECUTABLE ||

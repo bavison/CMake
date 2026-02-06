@@ -131,9 +131,7 @@
 #  include <sys/time.h>
 #endif
 
-#ifdef _WIN32
-#  include "cmGlobalIarEwArmGenerator.h"
-#endif
+#include "cmGlobalIarEwArmGenerator.h"
 
 namespace {
 
@@ -2679,9 +2677,7 @@ void cmake::AddDefaultGenerators()
 #ifdef CMAKE_USE_XCODE
   this->Generators.push_back(cmGlobalXCodeGenerator::NewFactory());
 #endif
-#ifdef _WIN32
   this->Generators.push_back(cmGlobalIarEwArmGenerator::NewFactory());
-#endif
 }
 
 bool cmake::ParseCacheEntry(const std::string& entry, std::string& var,

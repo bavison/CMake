@@ -35,7 +35,7 @@ static void option(cmXMLWriter& xout, std::string const& name,
 }
 
 template <>
-static void option<std::set<std::string>>(
+void option<std::set<std::string>>(
   cmXMLWriter& xout, std::string const& name,
   std::set<std::string> const& state)
 {
@@ -48,7 +48,7 @@ static void option<std::set<std::string>>(
 }
 
 template <>
-static void option<std::vector<std::string>>(cmXMLWriter& xout,
+void option<std::vector<std::string>>(cmXMLWriter& xout,
                                              std::string const& name,
                                              std::vector<std::string> const& state)
 {

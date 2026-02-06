@@ -842,15 +842,12 @@ if(WIN32 OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 # IAR support
-# Works only for windows
-if (WIN32)
-  set(SRCS ${SRCS}
-      cmGlobalIarEwArmGenerator.cxx
-      cmGlobalIarEwArmGenerator.h
-      cmLocalIarEwArmGenerator.cxx
-      cmLocalIarEwArmGenerator.h
-    )
-endif()
+set(SRCS ${SRCS}
+    cmGlobalIarEwArmGenerator.cxx
+    cmGlobalIarEwArmGenerator.h
+    cmLocalIarEwArmGenerator.cxx
+    cmLocalIarEwArmGenerator.h
+  )
 
 
 
