@@ -91,8 +91,12 @@ static std::string canonicalise(std::string proj_dir, std::string path)
 
   /* Check they are on the same volume - if not, then relative path is not
    * possible */
-  if (proj_dir[0] != path[0] || proj_dir[1] != ':' || path[1] != ':' ||
-      proj_dir[2] != '/' || path[2] != '/') {
+  auto drive = [](const std::string& s) {
+    if (s[0] == '/' || (s[0] && s[1] == ':' && s[2] == '/'))
+      return s[0];
+    return '\0';
+  };
+  if (!drive(proj_dir) || drive(proj_dir) != drive(path)) {
     result = path;
   }
   else {

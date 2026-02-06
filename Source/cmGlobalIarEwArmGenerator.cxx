@@ -1,5 +1,7 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing for details.  */
+#include <algorithm>
+
 #include "cmGlobalIarEwArmGenerator.h"
 
 #include "cmDocumentationEntry.h"
@@ -81,10 +83,17 @@ void cmGlobalIarEwArmGenerator::Generate()
 
   // Only the first item in the project map makes sense to use to generate an EWW file
   auto project = this->ProjectMap.begin();
-  // Build up a list of EWP file paths in a vector
-  std::vector<std::string> projects;
+  // Build up a list of EWP file paths in a vector, paired with a cmTarget
+  // pointer so that we can locate them in the correct order after sorting
+  struct ProjectInfo
+  {
+    std::string path;       // $WS_DIR$\...\Foo.ewp
+    cmTarget const* target; // non-owning
+    cmLocalGenerator* local_generator;
+  };
+  std::vector<ProjectInfo> projects;
   // For each configuration, build up a list of targets that use it, with
-  // static libraries segragated from executables
+  // static libraries segregated from executables
   std::map<std::string,
            std::map<cmStateEnums::TargetType, std::vector<std::string>>>
     config_projects;
@@ -93,8 +102,6 @@ void cmGlobalIarEwArmGenerator::Generate()
     project->second[0]->GetCurrentBinaryDirectory();
   // Go through all all targets, looking for binaries
   for (auto& local_generator : project->second) {
-    const auto& configs = local_generator->GetMakefile()->GetGeneratorConfigs(
-      cmMakefile::IncludeEmptyConfig);
     for (auto& target : local_generator->GetMakefile()->GetTargets()) {
       if (target.second.GetType() == cmStateEnums::EXECUTABLE ||
           target.second.GetType() == cmStateEnums::STATIC_LIBRARY) {
@@ -103,13 +110,24 @@ void cmGlobalIarEwArmGenerator::Generate()
         std::replace(path.begin(), path.end(), '/', '\\');
         path = "$WS_DIR$" + path + "\\" + target.first + ".ewp";
 
-        projects.push_back(path);
-
-        for (auto const& config : configs)
-          config_projects[config][target.second.GetType()].push_back(
-            target.first);
+        projects.push_back(
+          ProjectInfo{ path, &target.second, local_generator });
       }
     }
+  }
+  // Sort by full path
+  std::sort(projects.begin(), projects.end(),
+            [](ProjectInfo const& a, ProjectInfo const& b) {
+              return a.path < b.path;
+            });
+  // Now populate config_projects
+  for (const auto& p : projects) {
+    const auto& target = *p.target;
+    const auto& configs =
+      p.local_generator->GetMakefile()->GetGeneratorConfigs(
+        cmMakefile::IncludeEmptyConfig);
+    for (auto const& config : configs)
+      config_projects[config][target.GetType()].push_back(target.GetName());
   }
 
   // Write out EWW file
@@ -124,7 +142,7 @@ void cmGlobalIarEwArmGenerator::Generate()
   xout.StartElement("workspace");
   for (auto& p : projects) {
     xout.StartElement("project");
-    xout.Element("path", p);
+    xout.Element("path", p.path);
     xout.EndElement(); // project
   }
   xout.StartElement("batchBuild");
