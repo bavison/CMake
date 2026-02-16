@@ -9,6 +9,30 @@
 #include "cmSourceFile.h"
 #include "cmXMLWriter.h"
 
+class Version : public std::tuple<int, int, int>
+{
+  using Base = std::tuple<int, int, int>;
+
+public:
+  using Base::tuple; // inherit base constructors
+
+  explicit Version(const std::string& s)
+    : Base(0, 0, 0)
+  {
+    int a, b, c;
+    if (std::sscanf(s.c_str(), "%d.%d.%d", &a, &b, &c) != 3)
+      throw std::invalid_argument("Invalid version string");
+
+    std::get<0>(*this) = a;
+    std::get<1>(*this) = b;
+    std::get<2>(*this) = c;
+  }
+};
+
+static Version iar_version;
+static const Version v9_40_2(9,40,2);
+static const Version v9_60_3(9,60,3);
+
 cmLocalIarEwArmGenerator::cmLocalIarEwArmGenerator(cmGlobalGenerator* gg,
                                                    cmMakefile* mf)
   : cmLocalGenerator(gg, mf)
@@ -54,8 +78,11 @@ void option<std::vector<std::string>>(cmXMLWriter& xout,
 {
   xout.StartElement("option");
   xout.Element("name", name);
-  for (auto& s : state) {
-    xout.Element("state", s);
+  if (iar_version >= v9_40_2 && state.empty())
+    xout.Element("state", "");
+  else
+    for (auto& s : state) {
+      xout.Element("state", s);
   }
   xout.EndElement(); // option
 }
@@ -192,6 +219,9 @@ struct Dir
 
 void cmLocalIarEwArmGenerator::Generate()
 {
+  // Check compiler version so we can adapt as necessary
+  iar_version = Version(this->Makefile->GetSafeDefinition("CMAKE_C_COMPILER_VERSION"));
+
   // First, call Generate() on the base class
   cmLocalGenerator::Generate();
 
@@ -330,7 +360,7 @@ void cmLocalIarEwArmGenerator::Generate()
       xout.SetIndentationElement("    ");
       xout.StartDocument();
       xout.StartElement("project");
-      xout.Element("fileVersion", 3);
+      xout.Element("fileVersion", iar_version >= v9_40_2 ? 4 : 3);
       for (auto const& config : this->Makefile->GetGeneratorConfigs(
              cmMakefile::IncludeEmptyConfig)) {
 
@@ -364,7 +394,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "General");
         xout.Element("archiveVersion", 3);
         xout.StartElement("data");
-        xout.Element("version", 34);
+        xout.Element("version", iar_version >= v9_60_3 ? 37 : iar_version >= v9_40_2 ? 36 : 34);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "ExePath", config + "\\Exe");
@@ -381,23 +411,23 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "GRuntimeLibSelectSlave", 0, runtime_lib_select);
         option(xout, "RTDescription", runtime_config_description);
         option(xout, "OGProductVersion", "9.20.4.46976");
-        option(xout, "OGLastSavedByProductVersion", "9.20.4.46976");
+        option(xout, "OGLastSavedByProductVersion", iar_version >= v9_60_3 ? "9.60.3.7274" : iar_version >= v9_40_2 ? "9.40.2.67586" : "9.20.4.46976");
         option(xout, "OGChipSelectEditMenu", chip_select);
         option(xout, "GenLowLevelInterface", 1);
         option(xout, "GEndianModeBE", 1);
         option(xout, "OGBufferedTerminalOutput", 0);
         option(xout, "GenStdoutInterface", 0);
         option(xout, "RTConfigPath2", runtime_config_path);
-        option(xout, "GBECoreSlave", 31, 35);
+        option(xout, "GBECoreSlave", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, 35);
         option(xout, "OGUseCmsis", 0);
         option(xout, "OGUseCmsisDspLib", 0);
         option(xout, "GRuntimeLibThreads", 0);
-        option(xout, "CoreVariant", 31, 35);
+        option(xout, "CoreVariant", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, 35);
         option(xout, "GFPUDeviceSlave", chip_select);
         option(xout, "FPU2", 0, 0);
         option(xout, "NrRegs", 0, 0);
         option(xout, "NEON", 0);
-        option(xout, "GFPUCoreSlave2", 31, 35);
+        option(xout, "GFPUCoreSlave2", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, 35);
         option(xout, "OGCMSISPackSelectDevice");
         option(xout, "OgLibHeap", 0);
         option(xout, "OGLibAdditionalLocale", 0);
@@ -413,6 +443,14 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "OGAarch64Abi", 0);
         option(xout, "OG_32_64Device", 0);
         option(xout, "BuildFilesPath", config + "\\");
+        if (iar_version >= v9_40_2) {
+          option(xout, "PointerAuthentication", 0);
+          option(xout, "FPU64", 1);
+          option(xout, "OG_32_64DeviceCoreSlave", iar_version >= v9_60_3 ? 34 : 33, 35);
+          if (iar_version >= v9_60_3) {
+            option(xout, "GOutputSo", 0);
+          }
+        }
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -420,7 +458,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "ICCARM");
         xout.Element("archiveVersion", 2);
         xout.StartElement("data");
-        xout.Element("version", 37);
+        xout.Element("version", iar_version >= v9_60_3 ? 39 : iar_version >= v9_40_2 ? 38 : 37);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "CCDefines", c_defines);
@@ -482,6 +520,14 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IccRTTI2", 0);
         option(xout, "OICompilerExtraOption", 1);
         option(xout, "CCStackProtection", 0);
+        if (iar_version >= v9_40_2) {
+          option(xout, "CCPointerAutentiction", 0);
+          option(xout, "CCBranchTargetIdentification", 0);
+          if (iar_version >= v9_60_3) {
+            option(xout, "CCPosRadRwpi", 0);
+            option(xout, "CCPosSharedSlave", 0);
+          }
+        }
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -489,7 +535,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "AARM");
         xout.Element("archiveVersion", 2);
         xout.StartElement("data");
-        xout.Element("version", 11);
+        xout.Element("version", iar_version >= v9_40_2 ? 12 : 11);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "AObjPrefix", 1);
@@ -531,6 +577,9 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "AExtraOptionsV2", "");
         option(xout, "AsmNoLiteralPool", 0);
         option(xout, "PreInclude", "");
+        if (iar_version >= v9_40_2) {
+          option(xout, "A_32_64Device", 1);
+        }
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -551,11 +600,13 @@ void cmLocalIarEwArmGenerator::Generate()
 
         xout.StartElement("settings");
         xout.Element("name", "CUSTOM");
-        xout.Element("archiveVersion", 3);
+        xout.Element("archiveVersion", iar_version >= v9_60_3 ? 4 : 3);
         xout.StartElement("data");
         xout.Element("extensions", custom_extensions);
         xout.Element("cmdline", custom_cmdline);
-        xout.Element("hasPrio", 1);
+        if (iar_version < v9_60_3) {
+          xout.Element("hasPrio", 1);
+        }
         xout.Element("buildSequence", custom_build_sequence);
         if (!custom_outputs.empty()) {
           xout.StartElement("outputs");
@@ -578,20 +629,22 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
-        xout.StartElement("settings");
-        xout.Element("name", "BUILDACTION");
-        xout.Element("archiveVersion", 1);
-        xout.StartElement("data");
-        xout.Element("prebuild", "");
-        xout.Element("postbuild", "");
-        xout.EndElement(); // data
-        xout.EndElement(); // settings
+        if (iar_version < v9_40_2) {
+          xout.StartElement("settings");
+          xout.Element("name", "BUILDACTION");
+          xout.Element("archiveVersion", 1);
+          xout.StartElement("data");
+          xout.Element("prebuild", "");
+          xout.Element("postbuild", "");
+          xout.EndElement(); // data
+          xout.EndElement(); // settings
+        }
 
         xout.StartElement("settings");
         xout.Element("name", "ILINK");
         xout.Element("archiveVersion", 0);
         xout.StartElement("data");
-        xout.Element("version", 26);
+        xout.Element("version", iar_version >= v9_60_3 ? 28 : iar_version >= v9_40_2 ? 27 : 26);
         xout.Element("wantNonLocal", 1);
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "IlinkLibIOConfig", 1);
@@ -692,6 +745,13 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IlinkDemangle", 0);
         option(xout, "IlinkWrapperFileEnable", 0);
         option(xout, "IlinkWrapperFile", "");
+        if (iar_version >= v9_40_2) {
+          option(xout, "IlinkProcessor", 1);
+          option(xout, "IlinkFpuProcessor", 1);
+          if (iar_version >= v9_60_3) {
+            option(xout, "IlinkSharedSlave", 0);
+          }
+        }
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -707,6 +767,14 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IarchiveOutput", "###Unitialized###");
         xout.EndElement(); // data
         xout.EndElement(); // settings
+
+        if (iar_version >= v9_40_2) {
+          xout.StartElement("settings");
+          xout.Element("name", "BUILDACTION");
+          xout.Element("archiveVersion", 2);
+          xout.Element("data "); // trailing space required to match EWARM whitespace
+          xout.EndElement(); // settings
+        }
         xout.EndElement(); // configuration
       }
 
