@@ -149,17 +149,27 @@ void cmGlobalIarEwArmGenerator::Generate()
   for (auto const& batch : config_projects) {
     xout.StartElement("batchDefinition");
     xout.Element("name", "All - " + batch.first);
-    for (auto const& p : batch.second.at(cmStateEnums::STATIC_LIBRARY)) {
-      xout.StartElement("member");
-      xout.Element("project", p);
-      xout.Element("configuration", batch.first);
-      xout.EndElement(); // member
+    {
+      auto it = batch.second.find(cmStateEnums::STATIC_LIBRARY);
+      if (it != batch.second.end()) {
+        for (auto const& p : it->second) {
+          xout.StartElement("member");
+          xout.Element("project", p);
+          xout.Element("configuration", batch.first);
+          xout.EndElement(); // member
+        }
+      }
     }
-    for (auto const& p : batch.second.at(cmStateEnums::EXECUTABLE)) {
-      xout.StartElement("member");
-      xout.Element("project", p);
-      xout.Element("configuration", batch.first);
-      xout.EndElement(); // member
+    {
+      auto it = batch.second.find(cmStateEnums::EXECUTABLE);
+      if (it != batch.second.end()) {
+        for (auto const& p : it->second) {
+          xout.StartElement("member");
+          xout.Element("project", p);
+          xout.Element("configuration", batch.first);
+          xout.EndElement(); // member
+        }
+      }
     }
     xout.EndElement(); // batchDefinition
   }
