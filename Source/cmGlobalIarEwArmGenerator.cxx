@@ -4,6 +4,7 @@
 
 #include "cmGlobalIarEwArmGenerator.h"
 
+#include "cmake.h"
 #include "cmDocumentationEntry.h"
 #include "cmGeneratedFileStream.h"
 #include "cmGeneratorTarget.h"
@@ -81,14 +82,12 @@ void cmGlobalIarEwArmGenerator::Generate()
   // First, call Generate() on the base class
   this->cmGlobalGenerator::Generate();
 
-  // Only the first item in the project map makes sense to use to generate an EWW file
-  auto project = this->ProjectMap.begin();
   // Build up a list of EWP file paths in a vector, paired with a cmTarget
   // pointer so that we can locate them in the correct order after sorting
   struct ProjectInfo
   {
-    std::string path;       // $WS_DIR$\...\Foo.ewp
-    cmTarget const* target; // non-owning
+    std::string path;                // $WS_DIR$\...\Foo.ewp
+    cmGeneratorTarget const* target; // non-owning
     cmLocalGenerator* local_generator;
   };
   std::vector<ProjectInfo> projects;
@@ -98,20 +97,26 @@ void cmGlobalIarEwArmGenerator::Generate()
            std::map<cmStateEnums::TargetType, std::vector<std::string>>>
     config_projects;
   // Remember the absolute path to the top binary dir so we can construct relative paths
-  const std::string& top_binary_dir =
-    project->second[0]->GetCurrentBinaryDirectory();
+  const std::string top_binary_dir =
+    this->GetCMakeInstance()->GetHomeOutputDirectory();
+  // Derive a name for the workspace from the top-level project name of the
+  // first LocalGenerator
+  const std::string workspace_name =
+    this->LocalGenerators.front()->GetMakefile()->GetDefinition(
+      "CMAKE_PROJECT_NAME");
+
   // Go through all all targets, looking for binaries
-  for (auto& local_generator : project->second) {
-    for (auto& target : local_generator->GetMakefile()->GetTargets()) {
-      if (target.second.GetType() == cmStateEnums::EXECUTABLE ||
-          target.second.GetType() == cmStateEnums::STATIC_LIBRARY) {
+  for (const auto& local_generator : this->LocalGenerators) {
+    for (auto& target : local_generator->GetGeneratorTargets()) {
+      if (target->GetType() == cmStateEnums::EXECUTABLE ||
+          target->GetType() == cmStateEnums::STATIC_LIBRARY) {
         // Construct path to EWP file in format expected by EWARM
         std::string path = local_generator->GetCurrentBinaryDirectory().substr(top_binary_dir.length());
         std::replace(path.begin(), path.end(), '/', '\\');
-        path = "$WS_DIR$" + path + "\\" + target.first + ".ewp";
+        path = "$WS_DIR$" + path + "\\" + target->GetName() + ".ewp";
 
         projects.push_back(
-          ProjectInfo{ path, &target.second, local_generator });
+          ProjectInfo{ path, target.get(), local_generator.get() });
       }
     }
   }
@@ -131,7 +136,7 @@ void cmGlobalIarEwArmGenerator::Generate()
   }
 
   // Write out EWW file
-  cmGeneratedFileStream fout(top_binary_dir + "/" + project->first + ".eww");
+  cmGeneratedFileStream fout(top_binary_dir + "/" + workspace_name + ".eww");
   fout.SetCopyIfDifferent(true);
   if (!fout) {
     return;
