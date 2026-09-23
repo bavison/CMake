@@ -320,29 +320,29 @@ void cmLocalIarEwArmGenerator::Generate()
         split(this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_INPUTS"), ' ');
       for (auto& f : custom_inputs)
         f = canonicalise(this->GetCurrentBinaryDirectory(), f);
-      std::string ilink_keep_symbols =
+      std::string ilink_keep_symbols_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_ILINK_KEEP_SYMBOLS");
       std::string ilink_icf_file_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_ILINK_ICF_FILE");
-      std::string ilink_program_entry_label =
+      std::string ilink_program_entry_label_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_ILINK_PROGRAM_ENTRY_LABEL");
-      std::string do_fill =
+      std::string do_fill_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_DO_FILL");
-      std::string filler_byte =
+      std::string filler_byte_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_FILLER_BYTE");
-      std::string filler_start =
+      std::string filler_start_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_FILLER_START");
-      std::string filler_end =
+      std::string filler_end_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_FILLER_END");
-      std::string crc_size =
+      std::string crc_size_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_CRC_SIZE");
-      std::string crc_initial_value =
+      std::string crc_initial_value_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_CRC_INITIAL_VALUE");
-      std::string do_crc =
+      std::string do_crc_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_DO_CRC");
-      std::string ilink_crc_use_as_input =
+      std::string ilink_crc_use_as_input_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_ILINK_CRC_USE_AS_INPUT");
-      std::string crc_algorithm =
+      std::string crc_algorithm_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_CRC_ALGORITHM");
 
       // EWARM doesn't have the concept of installation of binaries, but this
@@ -375,11 +375,28 @@ void cmLocalIarEwArmGenerator::Generate()
         std::vector<std::string> asm_includes;
         GetIncludes(this->GetCurrentBinaryDirectory(), target.get(), config,
                     "ASM", asm_includes);
-        std::string ilink_icf_file;
-        if (!ilink_icf_file_expr.empty()) {
-          ilink_icf_file = cmGeneratorExpression::Evaluate(
-            ilink_icf_file_expr, this, config, target.get());
-        }
+
+        cmGeneratorTarget* generator_target = target.get();
+        auto evaluate = [this, &config,
+                         generator_target](const std::string& expr) {
+          return expr.empty() ? std::string{}
+                              : cmGeneratorExpression::Evaluate(
+                                  expr, this, config, generator_target);
+        };
+        std::string ilink_keep_symbols = evaluate(ilink_keep_symbols_expr);
+        std::string ilink_icf_file = evaluate(ilink_icf_file_expr);
+        std::string ilink_program_entry_label =
+          evaluate(ilink_program_entry_label_expr);
+        std::string do_fill = evaluate(do_fill_expr);
+        std::string filler_byte = evaluate(filler_byte_expr);
+        std::string filler_start = evaluate(filler_start_expr);
+        std::string filler_end = evaluate(filler_end_expr);
+        std::string crc_size = evaluate(crc_size_expr);
+        std::string crc_initial_value = evaluate(crc_initial_value_expr);
+        std::string do_crc = evaluate(do_crc_expr);
+        std::string ilink_crc_use_as_input =
+          evaluate(ilink_crc_use_as_input_expr);
+        std::string crc_algorithm = evaluate(crc_algorithm_expr);
 
         xout.StartElement("configuration");
         xout.Element("name", config);
