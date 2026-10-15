@@ -1,5 +1,7 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing for details.  */
+#include <optional>
+
 #include "cmLocalIarEwArmGenerator.h"
 
 #include "cmGeneratedFileStream.h"
@@ -211,10 +213,26 @@ void cmLocalIarEwArmGenerator::GetIncludes(std::string const& proj_dir,
   }
 }
 
+struct CustomConfig
+{
+  std::string extensions;
+  std::string cmdline;
+  std::vector<std::string> outputs;
+  std::vector<std::string> inputs;
+};
+
+struct File
+{
+  std::string name;
+  std::optional<CustomConfig> custom_config;
+
+  bool operator<(const File& other) const { return name < other.name; }
+};
+
 struct Dir
 {
   std::map<std::string, std::unique_ptr<Dir>> subdirs;
-  std::set<std::string> files;
+  std::set<File> files;
 };
 
 void cmLocalIarEwArmGenerator::Generate()
@@ -300,26 +318,6 @@ void cmLocalIarEwArmGenerator::Generate()
         asm_diag_suppress_range_2 =
           asm_diag_suppress.substr(asm_diag_suppress.find_first_of("-") + 1);
       }
-      std::string custom_extensions =
-        this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_EXTENSIONS");
-      std::vector<std::string> custom_cmdline_vector =
-        split(this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_CMDLINE"), ' ');
-      // Assume any element of the custom command line may be a filespec
-      for (auto& f : custom_cmdline_vector)
-        f = canonicalise(this->GetCurrentBinaryDirectory(), f);
-      std::string custom_cmdline = join(custom_cmdline_vector, ' ');
-      std::string custom_build_sequence =
-        this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_BUILD_SEQUENCE");
-      if (custom_build_sequence.empty())
-        custom_build_sequence = "inputOutputBased";
-      std::vector<std::string> custom_outputs =
-        split(this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_OUTPUTS"), ' ');
-      for (auto& f : custom_outputs)
-        f = canonicalise(this->GetCurrentBinaryDirectory(), f);
-      std::vector<std::string> custom_inputs =
-        split(this->Makefile->GetDefinition("CMAKE_IAR_CUSTOM_INPUTS"), ' ');
-      for (auto& f : custom_inputs)
-        f = canonicalise(this->GetCurrentBinaryDirectory(), f);
       std::string ilink_keep_symbols_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_ILINK_KEEP_SYMBOLS");
       std::string ilink_icf_file_expr =
@@ -619,30 +617,12 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("name", "CUSTOM");
         xout.Element("archiveVersion", iar_version >= v9_60_3 ? 4 : 3);
         xout.StartElement("data");
-        xout.Element("extensions", custom_extensions);
-        xout.Element("cmdline", custom_cmdline);
+        xout.Element("extensions", "");
+        xout.Element("cmdline", "");
         if (iar_version < v9_60_3) {
           xout.Element("hasPrio", 1);
         }
-        xout.Element("buildSequence", custom_build_sequence);
-        if (!custom_outputs.empty()) {
-          xout.StartElement("outputs");
-          for (auto& f : custom_outputs) {
-            xout.StartElement("file");
-            xout.Element("name", f);
-            xout.EndElement(); // file
-          }
-          xout.EndElement(); // outputs
-        }
-        if (!custom_inputs.empty()) {
-          xout.StartElement("inputs");
-          for (auto& f : custom_inputs) {
-            xout.StartElement("file");
-            xout.Element("name", f);
-            xout.EndElement(); // file
-          }
-          xout.EndElement(); // outputs
-        }
+        xout.Element("buildSequence", "inputOutputBased");
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
@@ -811,13 +791,55 @@ void cmLocalIarEwArmGenerator::Generate()
       for (auto& source : sources) {
         Dir* d = &root;
         std::string path = source->GetFullPath();
-        std::string canon =
-          canonicalise(this->GetCurrentBinaryDirectory(), path);
+        File f = { canonicalise(this->GetCurrentBinaryDirectory(), path) };
+        cmCustomCommand* custom_command = source->GetCustomCommand();
+        // Custom commands are only supposed to propagate to targets in the
+        // same directory in which add_custom_command() is invoked. That's
+        // (one reason) why every directory has its own set of cmSourceFile
+        // objects - and only the ones in the same directory will have an
+        // attached cmCustomCommand. In practice, it's common to deal with
+        // race conditions by using add_custom_target() in the same
+        // directory as add_custom_command() and have the executable depend
+        // on that. Technically we could try to trace this dependency chain
+        // but it's simpler to just scan all directories for objects
+        // relating to the same source file.
+        if (!custom_command)
+          custom_command =
+            static_cast<cmGlobalIarEwArmGenerator*>(this->GetGlobalGenerator())
+              ->FindCustomCommand(path);
+        if (custom_command) {
+          CustomConfig config;
+          if (auto pos = path.rfind('.'); pos != std::string::npos)
+            config.extensions = path.substr(pos);
+
+          const char* sep = "";
+          auto cmdlines = custom_command->GetCommandLines();
+          for (auto& cmdline : cmdlines) {
+            for (auto& element : cmdline) {
+              config.cmdline +=
+                sep + canonicalise(this->GetCurrentBinaryDirectory(), element);
+              sep = " ";
+            }
+            sep = " && ";
+          }
+
+          auto outputs = custom_command->GetOutputs();
+          for (auto& output : outputs)
+            config.outputs.emplace_back(
+              canonicalise(this->GetCurrentBinaryDirectory(), output));
+
+          auto inputs = custom_command->GetDepends();
+          for (auto it = inputs.begin() + 1; it != inputs.end(); ++it)
+            config.inputs.emplace_back(
+              canonicalise(this->GetCurrentBinaryDirectory(), *it));
+
+          f.custom_config = std::move(config);
+        }
         for (;;) {
           size_t i = path.find_first_of("/");
           if (i == std::string::npos) {
             // Reached leaf
-            d->files.emplace(canon);
+            d->files.emplace(f);
             break;
           }
           std::string subdir = path.substr(0, i);
@@ -844,7 +866,39 @@ void cmLocalIarEwArmGenerator::Generate()
         } else {
           for (auto& file : d->files) {
             xout.StartElement("file");
-            xout.Element("name", file);
+            xout.Element("name", file.name);
+            if (file.custom_config) {
+              for (auto const& config : this->Makefile->GetGeneratorConfigs(
+                     cmMakefile::IncludeEmptyConfig)) {
+                xout.StartElement("configuration");
+                xout.Element("name", config);
+                xout.StartElement("settings");
+                xout.Element("name", "CUSTOM");
+                xout.StartElement("data");
+                xout.Element("extensions", file.custom_config->extensions);
+                xout.Element("cmdline", file.custom_config->cmdline);
+                xout.Element("buildSequence", "preCompile");
+                xout.StartElement("outputs");
+                for (auto& output : file.custom_config->outputs) {
+                  xout.StartElement("file");
+                  xout.Element("name", output);
+                  xout.EndElement(); // file
+                }
+                xout.EndElement(); // outputs
+                if (!file.custom_config->inputs.empty()) {
+                  xout.StartElement("inputs");
+                  for (auto& input : file.custom_config->inputs) {
+                    xout.StartElement("file");
+                    xout.Element("name", input);
+                    xout.EndElement(); // file
+                  }
+                  xout.EndElement(); // inputs
+                }
+                xout.EndElement(); // data
+                xout.EndElement(); // settings
+                xout.EndElement(); // configuration
+              }
+            }
             xout.EndElement(); // file
           }
           if (breadcrumbs.empty())

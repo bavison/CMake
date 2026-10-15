@@ -12,6 +12,7 @@
 #include "cmLocalGenerator.h"
 #include "cmLocalIarEwArmGenerator.h"
 #include "cmMakefile.h"
+#include "cmSourceFile.h"
 #include "cmStateTypes.h"
 #include "cmXMLWriter.h"
 
@@ -196,6 +197,27 @@ const std::string& cmGlobalIarEwArmGenerator::FindLibraryPath(
   }
   static const std::string empty = "";
   return empty;
+}
+
+cmCustomCommand* cmGlobalIarEwArmGenerator::FindCustomCommand(
+  const std::string& path)
+{
+  if (!this->CustomCommandIndexBuilt) {
+    for (const auto& lg : this->GetLocalGenerators()) {
+      for (const auto& sf : lg->GetMakefile()->GetSourceFiles()) {
+        if (cmCustomCommand* cc = sf->GetCustomCommand()) {
+          // GetFullPath() is just a cached member and may still be empty
+          // for a file nothing has resolved yet, so resolve explicitly.
+          std::string const& full = sf->ResolveFullPath();
+          if (!full.empty())
+            this->CustomCommandIndex.emplace(full, cc); // first emplace wins
+        }
+      }
+    }
+    this->CustomCommandIndexBuilt = true;
+  }
+  auto it = this->CustomCommandIndex.find(path);
+  return it == this->CustomCommandIndex.end() ? nullptr : it->second;
 }
 
 std::unique_ptr<cmGlobalGenerator> cmGlobalIarEwArmGenerator::Factory::CreateGlobalGenerator(

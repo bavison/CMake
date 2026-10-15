@@ -3,7 +3,9 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
+#include "cmCustomCommand.h"
 #include "cmGlobalGenerator.h"
 #include "cmGlobalGeneratorFactory.h"
 #include "cmLocalGenerator.h"
@@ -33,9 +35,15 @@ public:
 
   const std::string& FindLibraryPath(const std::string& name);
 
+  /** Cached lookup of the custom command for a source file. */
+  cmCustomCommand* FindCustomCommand(const std::string& path);
+
 protected:
   void Generate() override;
 
 private:
   class Factory;
+
+  std::unordered_map<std::string, cmCustomCommand*> CustomCommandIndex;
+  bool CustomCommandIndexBuilt = false;
 };
