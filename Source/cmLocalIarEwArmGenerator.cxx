@@ -829,9 +829,10 @@ void cmLocalIarEwArmGenerator::Generate()
               canonicalise(this->GetCurrentBinaryDirectory(), output));
 
           auto inputs = custom_command->GetDepends();
-          for (auto it = inputs.begin() + 1; it != inputs.end(); ++it)
-            config.inputs.emplace_back(
-              canonicalise(this->GetCurrentBinaryDirectory(), *it));
+          for (auto& input : inputs)
+            if (input != source->GetFullPath())
+              config.inputs.emplace_back(
+                canonicalise(this->GetCurrentBinaryDirectory(), input));
 
           f.custom_config = std::move(config);
         }
