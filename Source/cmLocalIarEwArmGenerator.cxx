@@ -678,12 +678,13 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IlinkLowLevelInterfaceSlave", 1);
         option(xout, "IlinkAutoLibEnable", 1);
         std::vector<std::string> additional_libs;
-        for (auto const& lib : target->Target->GetOriginalLinkLibraries())
-          additional_libs.push_back(canonicalise(
-            this->GetCurrentBinaryDirectory(),
-            static_cast<cmGlobalIarEwArmGenerator*>(this->GetGlobalGenerator())
-                ->FindLibraryPath(lib.first) +
-              "/" + config + "/Exe/" + lib.first + ".a"));
+        const cmLinkImplementation* linkImpl = target->GetLinkImplementation(
+          config, cmGeneratorTarget::LinkInterfaceFor::Link);
+        for (const cmLinkItem& iter : linkImpl->Libraries) {
+          if (iter.Target != nullptr &&
+              iter.Target->GetType() != cmStateEnums::INTERFACE_LIBRARY)
+            additional_libs.push_back(iter.Target->GetLocation(config));
+        }
         option(xout, "IlinkAdditionalLibs", additional_libs);
         option(xout, "IlinkOverrideProgramEntryLabel", ilink_program_entry_label.empty() ? 0 : 1);
         option(xout, "IlinkProgramEntryLabelSelect", 0);
