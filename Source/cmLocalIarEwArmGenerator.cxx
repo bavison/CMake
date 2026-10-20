@@ -301,6 +301,16 @@ void cmLocalIarEwArmGenerator::Generate()
         chip_select += "\t" + chip_select_var;
       }
 
+      std::string core = this->Makefile->GetDefinition("CMAKE_IAR_CORE");
+      std::string fpu = this->Makefile->GetDefinition("CMAKE_IAR_FPU");
+      std::string fpu_nr_regs =
+        this->Makefile->GetDefinition("CMAKE_IAR_FPU_NR_REGS");
+      std::string dsp_extension =
+        this->Makefile->GetDefinition("CMAKE_IAR_DSP_EXTENSION");
+      std::string trustzone =
+        this->Makefile->GetDefinition("CMAKE_IAR_TRUSTZONE");
+      std::string trustzone_modes =
+        this->Makefile->GetDefinition("CMAKE_IAR_TRUSTZONE_MODES");
       std::string c_diag_suppress =
         this->Makefile->GetDefinition("CMAKE_IAR_C_DIAG_SUPPRESS");
       std::string c_allow_vla_str =
@@ -433,16 +443,16 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "OGBufferedTerminalOutput", 0);
         option(xout, "GenStdoutInterface", 0);
         option(xout, "RTConfigPath2", runtime_config_path);
-        option(xout, "GBECoreSlave", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, 35);
+        option(xout, "GBECoreSlave", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, core);
         option(xout, "OGUseCmsis", 0);
         option(xout, "OGUseCmsisDspLib", 0);
         option(xout, "GRuntimeLibThreads", 0);
-        option(xout, "CoreVariant", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, 35);
+        option(xout, "CoreVariant", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, core);
         option(xout, "GFPUDeviceSlave", chip_select);
-        option(xout, "FPU2", 0, 0);
-        option(xout, "NrRegs", 0, 0);
+        option(xout, "FPU2", 0, fpu);
+        option(xout, "NrRegs", 0, fpu_nr_regs);
         option(xout, "NEON", 0);
-        option(xout, "GFPUCoreSlave2", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, 35);
+        option(xout, "GFPUCoreSlave2", iar_version >= v9_60_3 ? 34 : iar_version >= v9_40_2 ? 33 : 31, core);
         option(xout, "OGCMSISPackSelectDevice");
         option(xout, "OgLibHeap", 0);
         option(xout, "OGLibAdditionalLocale", 0);
@@ -452,16 +462,16 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "OGScanfMultibyteSupport", 0);
         option(xout, "GenLocaleTags", "");
         option(xout, "GenLocaleDisplayOnly", "");
-        option(xout, "DSPExtension", "0");
-        option(xout, "TrustZone", 0);
-        option(xout, "TrustZoneModes", 0, 0);
+        option(xout, "DSPExtension", dsp_extension);
+        option(xout, "TrustZone", trustzone);
+        option(xout, "TrustZoneModes", 0, trustzone_modes);
         option(xout, "OGAarch64Abi", 0);
         option(xout, "OG_32_64Device", 0);
         option(xout, "BuildFilesPath", config + "\\");
         if (iar_version >= v9_40_2) {
           option(xout, "PointerAuthentication", 0);
           option(xout, "FPU64", 1);
-          option(xout, "OG_32_64DeviceCoreSlave", iar_version >= v9_60_3 ? 34 : 33, 35);
+          option(xout, "OG_32_64DeviceCoreSlave", iar_version >= v9_60_3 ? 34 : 33, core);
           if (iar_version >= v9_60_3) {
             option(xout, "GOutputSo", 0);
           }
