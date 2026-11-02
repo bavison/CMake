@@ -353,6 +353,34 @@ void cmLocalIarEwArmGenerator::Generate()
       std::string crc_algorithm_expr =
         this->Makefile->GetDefinition("CMAKE_IAR_CRC_ALGORITHM");
 
+      auto image_input_count_str =
+        target->Target->GetProperty("IAR_IMAGE_INPUT_COUNT").Get();
+      int image_input_count =
+        !image_input_count_str || image_input_count_str->empty()
+        ? 0
+        : stoi(*image_input_count_str);
+      struct ImageInput
+      {
+        std::string file;
+        std::string symbol;
+        std::string section;
+        std::string alignment;
+      };
+      std::vector<ImageInput> image_input_exprs;
+      for (int i = 0; i < image_input_count; ++i) {
+        auto property = [&target, i](const char* field) {
+          std::string name =
+            "IAR_IMAGE_INPUT_" + std::to_string(i) + "_" + field;
+          return *target->Target->GetProperty(name).Get();
+        };
+        ImageInput input_expr;
+        input_expr.file = property("FILE");
+        input_expr.symbol = property("SYMBOL");
+        input_expr.section = property("SECTION");
+        input_expr.alignment = property("ALIGNMENT");
+        image_input_exprs.emplace_back(std::move(input_expr));
+      }
+
       // EWARM doesn't have the concept of installation of binaries, but this
       // is a convenient place to stash the directory for future reference
       target->Target->SetInstallPath(this->GetCurrentBinaryDirectory());
@@ -659,10 +687,22 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IlinkOutputFile", target->GetName() + ".out");
         option(xout, "IlinkDebugInfoEnable", 1);
         option(xout, "IlinkKeepSymbols", ilink_keep_symbols);
-        option(xout, "IlinkRawBinaryFile", "");
-        option(xout, "IlinkRawBinarySymbol", "");
-        option(xout, "IlinkRawBinarySegment", "");
-        option(xout, "IlinkRawBinaryAlign", "");
+        if (image_input_count >= 1) {
+          option(xout, "IlinkRawBinaryFile",
+                 canonicalise(this->GetCurrentBinaryDirectory(),
+                              evaluate(image_input_exprs[0].file)));
+          option(xout, "IlinkRawBinarySymbol",
+                 evaluate(image_input_exprs[0].symbol));
+          option(xout, "IlinkRawBinarySegment",
+                 evaluate(image_input_exprs[0].section));
+          option(xout, "IlinkRawBinaryAlign",
+                 evaluate(image_input_exprs[0].alignment));
+        } else {
+          option(xout, "IlinkRawBinaryFile", "");
+          option(xout, "IlinkRawBinarySymbol", "");
+          option(xout, "IlinkRawBinarySegment", "");
+          option(xout, "IlinkRawBinaryAlign", "");
+        }
         option(xout, "IlinkDefines", "");
         option(xout, "IlinkConfigDefines", "");
         option(xout, "IlinkMapFile", 1);
@@ -683,8 +723,24 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IlinkTreatAsWarn", "");
         option(xout, "IlinkTreatAsErr", "");
         option(xout, "IlinkWarningsAreErrors", 0);
-        option(xout, "IlinkUseExtraOptions", 0);
-        option(xout, "IlinkExtraOptions", "");
+        if (image_input_count >= 3) {
+          option(xout, "IlinkUseExtraOptions", 1);
+          std::string extra_options;
+          for (int i = 2; i < image_input_count; ++i) {
+            if (!extra_options.empty())
+              extra_options += " ";
+            extra_options += "--image-input " +
+              canonicalise(this->GetCurrentBinaryDirectory(),
+                           evaluate(image_input_exprs[i].file)) +
+              "," + evaluate(image_input_exprs[i].symbol) + "," +
+              evaluate(image_input_exprs[i].section) + "," +
+              evaluate(image_input_exprs[i].alignment);
+          }
+          option(xout, "IlinkExtraOptions", extra_options);
+        } else {
+          option(xout, "IlinkUseExtraOptions", 0);
+          option(xout, "IlinkExtraOptions", "");
+        }
         option(xout, "IlinkLowLevelInterfaceSlave", 1);
         option(xout, "IlinkAutoLibEnable", 1);
         std::vector<std::string> additional_libs;
@@ -742,10 +798,22 @@ void cmLocalIarEwArmGenerator::Generate()
         option(xout, "IlinkLocaleSelect", 1);
         option(xout, "IlinkTrustzoneImportLibraryOut", target->GetName() + "_import_lib.o");
         option(xout, "OILinkExtraOption", 1);
-        option(xout, "IlinkRawBinaryFile2", "");
-        option(xout, "IlinkRawBinarySymbol2", "");
-        option(xout, "IlinkRawBinarySegment2", "");
-        option(xout, "IlinkRawBinaryAlign2", "");
+        if (image_input_count >= 2) {
+          option(xout, "IlinkRawBinaryFile2",
+                 canonicalise(this->GetCurrentBinaryDirectory(),
+                              evaluate(image_input_exprs[1].file)));
+          option(xout, "IlinkRawBinarySymbol2",
+                 evaluate(image_input_exprs[1].symbol));
+          option(xout, "IlinkRawBinarySegment2",
+                 evaluate(image_input_exprs[1].section));
+          option(xout, "IlinkRawBinaryAlign2",
+                 evaluate(image_input_exprs[1].alignment));
+        } else {
+          option(xout, "IlinkRawBinaryFile2", "");
+          option(xout, "IlinkRawBinarySymbol2", "");
+          option(xout, "IlinkRawBinarySegment2", "");
+          option(xout, "IlinkRawBinaryAlign2", "");
+        }
         option(xout, "IlinkLogCrtRoutineSelection", 0);
         option(xout, "IlinkLogFragmentInfo", 0);
         option(xout, "IlinkLogInlining", 0);
