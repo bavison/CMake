@@ -4,6 +4,7 @@
 
 #include "cmLocalIarEwArmGenerator.h"
 
+#include "cmCustomCommandGenerator.h"
 #include "cmGeneratedFileStream.h"
 #include "cmGeneratorExpression.h"
 #include "cmGeneratorTarget.h"
@@ -664,13 +665,26 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.EndElement(); // data
         xout.EndElement(); // settings
 
+        std::string compound_command;
+        const char* sep = "";
+        for (const auto& custom_command : target->GetPostBuildCommands()) {
+          auto cmdlines = custom_command.GetCommandLines();
+          for (auto& cmdline : cmdlines) {
+            for (auto& element : cmdline) {
+              compound_command += sep + canonicalise(this->GetCurrentBinaryDirectory(), evaluate(element));
+              sep = " ";
+            }
+            sep = " && ";
+          }
+        }
+
         if (iar_version < v9_40_2) {
           xout.StartElement("settings");
           xout.Element("name", "BUILDACTION");
           xout.Element("archiveVersion", 1);
           xout.StartElement("data");
           xout.Element("prebuild", "");
-          xout.Element("postbuild", "");
+          xout.Element("postbuild", compound_command);
           xout.EndElement(); // data
           xout.EndElement(); // settings
         }
@@ -848,7 +862,19 @@ void cmLocalIarEwArmGenerator::Generate()
           xout.StartElement("settings");
           xout.Element("name", "BUILDACTION");
           xout.Element("archiveVersion", 2);
-          xout.Element("data "); // trailing space required to match EWARM whitespace
+          if (compound_command.empty()) {
+            xout.Element("data "); // trailing space required to match EWARM whitespace
+          } else {
+            xout.StartElement("data");
+            xout.StartElement("buildActions");
+            xout.StartElement("buildAction");
+            xout.Element("cmdline", compound_command);
+            xout.Element("workingDirectory", "$PROJ_DIR$");
+            xout.Element("buildSequence", "postLink");
+            xout.EndElement(); // buildAction
+            xout.EndElement(); // buildActions
+            xout.EndElement(); // data
+          }
           xout.EndElement(); // settings
         }
         xout.EndElement(); // configuration
