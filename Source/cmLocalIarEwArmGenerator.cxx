@@ -698,7 +698,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "IlinkLibIOConfig", 1);
         option(xout, "IlinkInputFileSlave", 0);
-        option(xout, "IlinkOutputFile", target->GetName() + ".out");
+        option(xout, "IlinkOutputFile", target->GetName() + ".elf");
         option(xout, "IlinkDebugInfoEnable", 1);
         option(xout, "IlinkKeepSymbols", ilink_keep_symbols);
         if (image_input_count >= 1) {
