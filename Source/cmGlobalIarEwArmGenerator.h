@@ -33,6 +33,11 @@ public:
 
   bool FindMakeProgram(cmMakefile*) override;
 
+  void AppendDirectoryForConfig(const std::string& prefix,
+                                const std::string& config,
+                                const std::string& suffix,
+                                std::string& dir) override;
+
   const std::string& FindLibraryPath(const std::string& name);
 
   /** Cached lookup of the custom command for a source file. */

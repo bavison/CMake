@@ -78,6 +78,18 @@ bool cmGlobalIarEwArmGenerator::FindMakeProgram(cmMakefile*)
   return true;
 }
 
+void cmGlobalIarEwArmGenerator::AppendDirectoryForConfig(
+  const std::string& prefix, const std::string& config,
+  const std::string& suffix, std::string& dir)
+{
+  if (!config.empty()) {
+    dir += prefix;
+    dir += config;
+    dir += "/Exe";
+    dir += suffix;
+  }
+}
+
 void cmGlobalIarEwArmGenerator::Generate()
 {
   // First, call Generate() on the base class
