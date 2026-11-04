@@ -52,7 +52,7 @@ public:
 
 cmGlobalIarEwArmGenerator::cmGlobalIarEwArmGenerator(cmake* cm) : cmGlobalGenerator(cm)
 {
-  // TODO
+  cm->GetState()->SetIsGeneratorMultiConfig(true);
 }
 
 std::unique_ptr<cmGlobalGeneratorFactory> cmGlobalIarEwArmGenerator::NewFactory()
