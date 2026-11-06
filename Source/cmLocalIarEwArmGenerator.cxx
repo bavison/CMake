@@ -678,6 +678,31 @@ void cmLocalIarEwArmGenerator::Generate()
           }
         }
 
+        // Name of the file written by the linker. Normally this is the same
+        // file that CMake knows as $<TARGET_FILE>, but see below.
+        std::string ilink_output = target->GetName() + ".elf";
+        if (!compound_command.empty()) {
+          // EWARM runs the post-link action as a separate build step from
+          // the link. POST_BUILD commands commonly modify the target file
+          // in place (e.g. to strip, sign or encrypt it), but if that
+          // changes the timestamp of the linker's output after the link
+          // finished, the build system sees the output as out of date and
+          // relinks every time.
+          // To avoid this, have the linker write <name>.out, which nothing
+          // modifies afterwards, and begin the post-link action by copying
+          // it to <name>.elf, the file the POST_BUILD commands expect.
+          std::string elf = target->GetFullPath(config);
+          std::string out = elf.substr(0, elf.find_last_of('/') + 1) +
+            target->GetName() + ".out";
+          ilink_output = target->GetName() + ".out";
+          compound_command =
+            "\"" + this->Makefile->GetSafeDefinition("CMAKE_COMMAND") +
+            "\" -E copy \"" +
+            canonicalise(this->GetCurrentBinaryDirectory(), out) + "\" \"" +
+            canonicalise(this->GetCurrentBinaryDirectory(), elf) + "\" && " +
+            compound_command;
+        }
+
         if (iar_version < v9_40_2) {
           xout.StartElement("settings");
           xout.Element("name", "BUILDACTION");
@@ -698,7 +723,7 @@ void cmLocalIarEwArmGenerator::Generate()
         xout.Element("debug", config == "Debug" ? 1 : 0);
         option(xout, "IlinkLibIOConfig", 1);
         option(xout, "IlinkInputFileSlave", 0);
-        option(xout, "IlinkOutputFile", target->GetName() + ".elf");
+        option(xout, "IlinkOutputFile", ilink_output);
         option(xout, "IlinkDebugInfoEnable", 1);
         option(xout, "IlinkKeepSymbols", ilink_keep_symbols);
         if (image_input_count >= 1) {
